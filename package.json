@@ -4,6 +4,7 @@
   "description": "OpenCode Desktop usage, quota, TPS/TTFT and session stats sidebar plugin",
   "type": "module",
   "license": "MIT",
+  "author": "sthsmall",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/sthsmall/opencode-usage-desktop.git"

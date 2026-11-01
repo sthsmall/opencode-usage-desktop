@@ -3,7 +3,7 @@
 [![npm](https://img.shields.io/npm/v/opencode-usage-desktop.svg)](https://www.npmjs.com/package/opencode-usage-desktop)
 [![GitHub release](https://img.shields.io/github/v/release/sthsmall/opencode-usage-desktop.svg)](https://github.com/sthsmall/opencode-usage-desktop/releases)
 
-[English](README.md) | 简体中文
+[English](https://github.com/sthsmall/opencode-usage-desktop/blob/main/README.md) | 简体中文
 
 OpenCode Desktop 的用量、配额和性能侧边栏。功能上覆盖 OpenChamber 的 Usage/Live TPS 思路，并额外提供设置、通知和统计对话框。
 

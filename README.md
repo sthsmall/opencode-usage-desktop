@@ -3,7 +3,7 @@
 [![npm](https://img.shields.io/npm/v/opencode-usage-desktop.svg)](https://www.npmjs.com/package/opencode-usage-desktop)
 [![GitHub release](https://img.shields.io/github/v/release/sthsmall/opencode-usage-desktop.svg)](https://github.com/sthsmall/opencode-usage-desktop/releases)
 
-English | [简体中文](README.zh-CN.md)
+English | [简体中文](https://github.com/sthsmall/opencode-usage-desktop/blob/main/README.zh-CN.md)
 
 Usage, quota, TPS/TTFT and session statistics for OpenCode Desktop. It covers the OpenChamber usage / live TPS ideas and adds settings, notifications and a full stats dialog.
 
