@@ -1,0 +1,59 @@
+{
+  "name": "opencode-usage-desktop",
+  "version": "0.1.0",
+  "description": "OpenCode Desktop usage, quota, TPS/TTFT and session stats sidebar plugin",
+  "type": "module",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/sthsmall/opencode-usage-desktop.git"
+  },
+  "homepage": "https://github.com/sthsmall/opencode-usage-desktop#readme",
+  "bugs": {
+    "url": "https://github.com/sthsmall/opencode-usage-desktop/issues"
+  },
+  "keywords": [
+    "opencode",
+    "opencode-plugin",
+    "opencode-desktop",
+    "usage",
+    "quota",
+    "tps",
+    "ttft",
+    "stats"
+  ],
+  "exports": {
+    ".": "./dist/index.js",
+    "./gui-experimental": "./dist/gui-experimental.cjs",
+    "./package.json": "./package.json"
+  },
+  "main": "./dist/index.js",
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "build:server": "tsc -p tsconfig.server.json",
+    "build": "vite build && npm run build:server",
+    "prepack": "npm run typecheck && npm run build"
+  },
+  "dependencies": {
+    "@opencode/plugin": "^2.2.5",
+    "effect": "^4.0.6"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.6",
+    "solid-js": "^1.9.18",
+    "typescript": "^5.9.3",
+    "vite": "^7.3.7",
+    "vite-plugin-solid": "^2.11.15"
+  }
+}
