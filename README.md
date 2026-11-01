@@ -3,143 +3,60 @@
 [![npm](https://img.shields.io/npm/v/opencode-usage-desktop.svg)](https://www.npmjs.com/package/opencode-usage-desktop)
 [![GitHub release](https://img.shields.io/github/v/release/sthsmall/opencode-usage-desktop.svg)](https://github.com/sthsmall/opencode-usage-desktop/releases)
 
-OpenCode Desktop 的用量、配额和性能侧边栏。功能上覆盖 OpenChamber 的 Usage/Live TPS 思路，并额外提供设置、通知和统计对话框。
+English | [简体中文](README.zh-CN.md)
 
-## 功能
+Usage, quota, TPS/TTFT and session statistics for OpenCode Desktop. It covers the OpenChamber usage / live TPS ideas and adds settings, notifications and a full stats dialog.
 
-- 侧边栏固定的 **Usage** tab（pinned），不占用 composer 上方空间
-- 5h / 1w / 1mo 配额，支持 **used / remaining** 切换
-- 阈值颜色：默认 50% warning、80% danger，可在设置里改
-- 配额 **pace**：进度条上的竖线表示窗口已过去的时间；下方显示 `time %` 和 `on pace / x% under pace / x% over pace`
-- **当前 turn** 和 **global** 两套 TTFT / TPS 卡片
-- **Live TPS**：左上角实时 TPS + 最近 15 分钟生成速度柱状图（每分钟一根，空白表示该分钟没有生成 token）
-- **TPS / TTFT 图**：Usage 侧边栏同一张卡片可切 `15m / 24h / 30d`；Stats 里可切 `24h` / 当前 range，带 avg / p50 / p95
-- TPS 统计 output + reasoning；优先使用 provider 返回的真实 token，流式期间用字符估算并标 `estimate`
-- 当前会话：Cost、Tokens、Cache hit、Context fill、reasoning share、$/1M
-- 命令面板：
+## Features
+
+- Pinned **Usage** tab in the session sidebar, without taking space above the composer
+- 5h / 1w / 1mo quota with **used / remaining** toggle
+- Quota **pace**: a marker on the bar shows elapsed window time, with `on pace`, `x% under pace`, `x% over pace`
+- Threshold colors: 50% warning and 80% danger by default, configurable in settings
+- **TTFT / TPS** cards for the current turn and a global average
+- **15m / 24h / 30d** performance card:
+  - `15m`: real-time TPS in the top-left plus a 15-minute chart, one bar per minute
+  - `24h`: hourly TPS and TTFT history for the current session
+  - `30d`: daily TPS and TTFT history for the current session
+- Session cards: cost, tokens, cache read/write, cache hit, context fill, reasoning share and cost per 1M tokens
+- Stats dialog:
+  - 7d / 30d / 90d / all ranges
+  - token activity, token mix, efficiency, top models
+  - project scope: all projects or the current project
+  - per-tool detail on demand
+  - TPS / TTFT bars for the current session
+- Commands:
   - `Usage: open details`
-  - `Usage: open stats`（7d / 30d / 90d / all 统计对话框）
+  - `Usage: open stats`
   - `Usage: refresh`
   - `Usage: copy performance metrics`
-- 设置页：显示模式、阈值、Live TPS 开关、配额通知开关
-- 配额到 danger 阈值时发系统通知（带 session，可去重）
+- Settings page: display mode, thresholds, live TPS card and quota notifications
+- Desktop notification when a quota crosses the danger threshold
 
-## 数据与算法
-
-### 配额
-
-- **Go 计划**：server 插件通过 `ctx.integration.connection.active("opencode-go")` 取当前连接，再调用
-  `https://opencode.ai/zen/go/v1/usage`。凭据只留在 server 进程。
-- **Console 预算**：如果登录的是 `opencode` 集成，读取 `data.location.usage.limits()`。
-- GUI 用当前 session 的 server client 和 `location` 调用 RPC；远程 server 或切换 workspace 时不会读错目录。
-- **Pace**：用 `resetsAt - 固定窗口长度` 估算窗口起点，比较“已用百分比”和“已过去时间百分比”。
-  竖线是时间进度；`under pace` 表示用量慢于时间，`over pace` 表示按当前速度可能提前用完。
-  monthly 按 30 天估算，实际以服务端 `resetsAt` 为准。
-
-### TTFT
-
-- 当前 turn：`session.step.started` 的 `started` → 第一个 `session.text/reasoning/tool` 事件。
-- 历史回复没有实时事件时，用第一个 reasoning 片段的 `time.created` 近似；纯文本历史回复显示 `—`。
-- 精确历史和实时值都来自事件时间戳，不使用消息完成时间。
-
-### TPS
-
-- 当前 turn：按字符 delta 实时累计，`chars / 4` 估算，再乘以每个模型学习到的校准系数（0.25–4×）。
-- step 结束后用 provider 返回的 `tokens.output + tokens.reasoning` 替换估算值，标 `measured`。
-- 分母是字符之间的净生成时间；超过 1 秒的间隔（思考、工具、等待）不计入。
-- global：最后一次完成的 compaction 之后，最近 20 条回复的加权平均。
-- `time.streamed` 是 provider stream 结束时间，不是首字时间，所以 TTFT 单独从事件算。
-
-### 生成速度柱状图
-
-- 固定最近 **15 分钟**，15 根柱子，每根 1 分钟。
-- 空白不是 0，而是那个分钟没有生成 token：模型在思考、调用工具，或者在等待。
-- 窗口内完全没有生成时显示 `No generation in the last 15 min`，不再画一排零高度的虚线。
-- 没有 turn 时不再显示空白图表，只显示一行 `No turns yet`。
-- 左上角是实时 TPS（当前 turn 用 1 秒窗口，空闲时显示 last turn 平均值）。
-- `peak` 是这 15 分钟内最高的每分钟速度。
-
-### Stats 里的 TPS / TTFT 柱状图
-
-- Usage 侧边栏的 Live 卡片和这张图合并了：同一张卡片可切 `15m / 24h / 30d`。
-- Stats 里是独立区域，可切 `24h` / 当前 Stats range。
-- 数据来自当前 session 的 assistant messages。
-- 只有两种时间跨度：
-  - `24h`：最近 24 小时，**每小时**一根柱子
-  - 当前 Stats range（`7d / 30d / 90d / all`）：按**自然日**聚合；超过 92 天自动按周聚合
-- 没有响应的时段保留为 1px 基线，不会被压缩掉，横轴是真实时间。
-- 显示 `avg / p50 / p95 / n`，TPS 和 TTFT 各一张柱状图。
-- `TPS = (output + reasoning tokens) / (streamed - first output)`；分母包含历史消息里的工具/思考时间，可能比实时 TPS 低。
-- `TTFT = first reasoning/tool time - message time.created`；纯文本开头的历史消息没有首 token 时间，TTFT 显示为空。
-- 当前 session 还有更早消息未加载时，底部提供 `Load older` 逐页加载。
-- Stats 的聚合接口只返回 token/cost/activity，没有逐条 response timing；因此这两张图是 **当前 session** 维度，不跨 session 汇总。
-
-### 会话指标卡片
-
-- **Input**：本会话未被 cache 命中的新 prompt token。
-- **Output**：本会话的可见输出 token；reasoning 单独计算。
-- **Cache read / Cache write**：从缓存读取和写入缓存的 token；read 通常远大于 input。
-- **Reasoning share**：`reasoning / (output + reasoning)`，即生成内容里思考 token 的占比。
-- **Cost / 1M**：每百万 token 的混合成本；Go 订阅按额度计费，所以常见 `$0`。
-
-### 会话指标算法
-
-- **Cache hit**：`cache.read / (input + cache.read + cache.write)`
-- **Context**：最后一条有 token 的 assistant 消息 / 模型 context limit；compaction 之后显示 `—`，直到下一次回复
-- **Reasoning share**：`reasoning / (output + reasoning)`
-- **Cost / 1M**：`cost / total tokens × 1,000,000`；Go 订阅的 cost 为 0 时显示 `$0`
-- 底部的 input / output / cache read / cache write / reasoning share / cost per 1M 现在也是独立卡片，不再挤成两行小字
-
-### 统计对话框
-
-调用 `experimental.session.stats`，支持 7d / 30d / 90d / all，显示 prompts、steps、sessions、active days、tokens、cost、cache hit、$/1M、reasoning share、tool success、subagents、streak、Top models 和 token activity。
-
-另外增加了 OpenChamber 风格的内容：
-
-- **Project scope**：`All projects` / 当前项目切换；缓存 key 包含 project，范围互不污染
-- **Token mix**：input / output / cache read / cache write 的堆叠占比和数值
-- **Efficiency**：每个 session 的平均 cost、tokens、steps
-- **Tool detail**：按需加载 `tools: "detail"`，显示 calls、成功率、failed、unfinished，以及每个工具的中位耗时 p50
-- **Token activity**：按天/周统计 token 总量（input + output + reasoning + cache read/write；cache 占比高时数字会很大），空日期保留基线；
-  超过 92 天自动按周聚合；柱子上悬停显示日期和 token 数，底部显示起止日期。
-  数据通过按天/周调用 `experimental.session.stats`（`tools: "none"`）聚合，带 60 秒缓存；
-  30d/90d 首次打开会有短暂加载。
-
-## 构建
-
-```sh
-npm install
-npm run typecheck
-npm run build
-```
-
-产物：
-
-- `dist/index.js`：server 插件入口
-- `dist/rpc.js`：RPC 定义
-- `dist/gui-experimental.cjs`：Desktop GUI bundle
-
-## 安装
+## Install
 
 ### npm
-
-发布后全局配置 `~/.config/opencode/opencode.json`：
-
-```jsonc
-{
-  "plugins": ["opencode-usage-desktop"]
-}
-```
-
-或者：
 
 ```sh
 opencode plugin add opencode-usage-desktop
 ```
 
+Or add it to the global `~/.config/opencode/opencode.json`:
+
+```jsonc
+{
+  "$schema": "https://opencode.ai/config.json",
+  "plugins": ["opencode-usage-desktop"]
+}
+```
+
 ### GitHub
 
-不经过 npm 也可以直接从 GitHub 安装：
+```sh
+opencode plugin add github:sthsmall/opencode-usage-desktop
+```
+
+Or:
 
 ```jsonc
 {
@@ -147,38 +64,148 @@ opencode plugin add opencode-usage-desktop
 }
 ```
 
-仓库里提交了 `dist/`，所以不需要在本地构建。
+The repository commits `dist/`, so a GitHub install does not need a local build.
 
-### 本地开发
+### Local development
 
 ```jsonc
 {
-  "plugins": ["D:\\work\\opencode-usage-desktop"]
+  "plugins": ["/absolute/path/to/opencode-usage-desktop"]
 }
 ```
 
-保存后 OpenCode 会自动重载；如果侧边栏没有 Usage tab，打开 **Settings > Extensions > Plugins** 点 **Reload**，
-或重启桌面应用。改完 `src/gui.tsx` 后重新 `npm run build`，桌面端会自动热重载 GUI。
+On Windows, use a path such as `D:\\work\\opencode-usage-desktop`.
 
-## 卸载
+After changing the config, restart OpenCode Desktop, or open **Settings → Extensions → Plugins** and press **Reload**. The pinned **Usage** tab appears in the session sidebar.
 
-从 `plugins` 数组里删掉这一项。改之前的配置备份在：
-`~/.config/opencode/opencode.json.bak-20261101-usage`。
+### Requirements
 
-## 结构
+- OpenCode Desktop 2.2.x (the GUI plugin API is still experimental)
+- OpenCode Go / Zen sign-in for quota data; TPS, TTFT and session stats work without it
+- The plugin is read-only: it does not modify sessions, messages or prompts
+
+## Data and algorithms
+
+### Quota
+
+- **Go plan**: the server part reads the active `opencode-go` integration and calls
+  `https://opencode.ai/zen/go/v1/usage`. Credentials stay in the server process.
+- **Console budgets**: when the active integration is `opencode`, the plugin reads `data.location.usage.limits()`.
+- The GUI calls the RPC through the current session's server client and location, so remote servers and workspace switches do not read the wrong directory.
+- **Pace**: estimated from `resetsAt - window length`; the marker is elapsed time. `under pace` means usage is slower than time, `over pace` means it may run out early. Monthly uses 30 days as an estimate; the server's `resetsAt` is authoritative.
+
+### TTFT
+
+- Current turn: `session.step.started.started` to the first `session.text`, `session.reasoning` or `session.tool` event.
+- Historical reasoning/tool-first responses use the first reasoning/tool part timestamp.
+- Text-first historical responses have no first-token timestamp, so TTFT shows `—`.
+- Timestamps come from events, not from message completion times.
+
+### TPS
+
+- Current turn: character deltas are estimated as `chars / 4`, corrected by a per-model factor learned from finished steps (0.25–4×).
+- When a step ends, provider-reported `output + reasoning` tokens replace the estimate and the value is labelled `measured`.
+- The denominator is net generation time between deltas; gaps longer than 1 second (thinking, tools, waiting) are excluded.
+- Global TPS: weighted average of the last 20 responses after the last completed compaction.
+- `time.streamed` is the end of the provider stream, not the first token, so TTFT is calculated separately.
+
+### 15-minute chart
+
+- The live chart covers the last **15 minutes** with 15 bars, one minute per bar.
+- Empty bars mean no tokens were generated in that minute: the model was thinking, calling tools or waiting.
+- The top-left value is real-time TPS while generating, or the last turn's average while idle.
+- If there are no turns, the card shows `No turns yet` instead of an empty chart.
+
+### Stats TPS / TTFT
+
+- Data comes from the current session's assistant messages.
+- Two time spans:
+  - `24h`: the last 24 hours, one bar per hour
+  - current Stats range (`7d / 30d / 90d / all`): one bar per calendar day; ranges over 92 days group by week
+- Empty periods keep a 1px baseline, so the chart has a real time axis.
+- Shows `avg / p50 / p95 / n` for TPS and TTFT.
+- `TPS = (output + reasoning tokens) / (streamed - first output)`. Historical values include tool/thinking time in the denominator and can be lower than live TPS.
+- `TTFT = first reasoning/tool time - message.time.created`. Text-only history has no timestamp.
+- If older messages of the current session are not loaded, `Load older` fetches one more page.
+- The aggregate stats endpoint only exposes token/cost/activity, not per-response timing, so these charts are **current-session** only.
+
+### Token activity
+
+- The stats Activity chart uses **tokens**, not steps.
+- Total tokens = `input + output + reasoning + cache.read + cache.write`. Cache-heavy days can look very large.
+- Days without activity keep a baseline; ranges over 92 days group by week.
+- Because `experimental.session.stats` only returns daily steps, the chart requests one stats range per day/week with `tools: "none"` and sums tokens.
+- Results are cached for 60 seconds. The 30d/90d views may show a short `Loading token activity…` state.
+
+### Session metrics
+
+- **Cache hit**: `cache.read / (input + cache.read + cache.write)`
+- **Context**: last assistant message with tokens divided by the model context limit; after compaction it shows `—` until the next response
+- **Reasoning share**: `reasoning / (output + reasoning)`
+- **Cost / 1M**: `cost / total tokens × 1,000,000`; Go subscriptions often show `$0`
+
+### Stats dialog
+
+Uses `experimental.session.stats` with 7d / 30d / 90d / all ranges and shows prompts, steps, sessions, active days, tokens, cost, cache hit, cost per 1M, reasoning share, tool success, subagents, streak, top models and token activity.
+
+Additional sections:
+
+- **Project scope**: `All projects` or the current project; the cache key includes the project
+- **Token mix**: stacked input / output / cache read / cache write shares
+- **Efficiency**: average cost, tokens and steps per session
+- **Tool detail**: loads `tools: "detail"` on demand with calls, success rate, failed, unfinished and p50 duration
+- **Token activity**: per-day or per-week token totals with a real calendar axis
+
+## Commands
+
+| Command | What it does |
+| --- | --- |
+| `Usage: open details` | Opens the pinned Usage panel |
+| `Usage: open stats` | Opens the stats dialog |
+| `Usage: refresh` | Refreshes quota and usage data |
+| `Usage: copy performance metrics` | Copies the current performance snapshot as JSON |
+
+## Build
+
+```sh
+npm install
+npm run typecheck
+npm run build
+```
+
+Outputs:
+
+- `dist/index.js`: server plugin entry
+- `dist/rpc.js`: shared RPC definition
+- `dist/gui-experimental.cjs`: Desktop GUI bundle
+
+## Uninstall
+
+```sh
+opencode plugin remove opencode-usage-desktop
+```
+
+Or remove the entry from the `plugins` array in the global `opencode.json`.
+
+## Structure
 
 ```text
 src/
-├── index.ts    server 插件：注册 RPC，读取 OpenCode Go 凭据并请求 usage 端点
-├── rpc.ts      server 与 GUI 共享的 RPC 定义（JSON Schema）
-├── metrics.ts  实时 TPS/TTFT/sparkline 引擎（事件驱动、按模型校准）
-└── gui.tsx     GUI：侧边栏面板、设置页、统计对话框、命令
+├── index.ts    server plugin: registers RPC, reads OpenCode Go credentials and requests the usage endpoint
+├── rpc.ts      shared RPC definition (JSON Schema)
+├── metrics.ts  event-driven live TPS/TTFT/sparkline engine with per-model calibration
+└── gui.tsx     GUI: sidebar panel, settings page, stats dialog, commands
 ```
 
-## 已知边界
+## Known limits
 
-- 只覆盖 OpenCode Go / Console 的配额；`mi` 这类自定义 provider 不在内。
-- GUI 插件 API 在 OpenCode 2.2.x 仍是 experimental，升级大版本后可能需要适配。
-- Live TPS 在 step 结束前是字符估算；provider 报告真实 token 后才会变成 `measured`。
-- 历史纯文本回复的 TTFT 显示 `—`；reasoning 回复用第一个 reasoning 时间近似。
-- `cost` 对 Go 订阅通常是 0，这是正常的。
+- Quota support covers OpenCode Go / Console; custom providers such as `mi` are not included.
+- The GUI plugin API is experimental in OpenCode 2.2.x and may need adaptation after a major upgrade.
+- Live TPS is a character estimate until a step finishes; provider-reported tokens then replace it and mark it `measured`.
+- Historical text-first responses have no TTFT timestamp and show `—`.
+- Stats TPS/TTFT charts are current-session only because the aggregate stats endpoint does not return per-response timing.
+- `cost` is often `$0` for Go subscriptions.
+
+## License
+
+MIT
