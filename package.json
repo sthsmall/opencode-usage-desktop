@@ -1,6 +1,6 @@
 {
   "name": "opencode-usage-desktop",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "OpenCode Desktop usage, quota, TPS/TTFT and session stats sidebar plugin",
   "type": "module",
   "license": "MIT",

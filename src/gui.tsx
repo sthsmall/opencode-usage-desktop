@@ -35,6 +35,7 @@ type Prefs = {
   danger: number
   live: boolean
   notify: boolean
+  pin: boolean
 }
 
 const DEFAULT_PREFS: Prefs = {
@@ -43,6 +44,7 @@ const DEFAULT_PREFS: Prefs = {
   danger: 80,
   live: true,
   notify: true,
+  pin: true,
 }
 
 const Preferences = Schema.Struct({
@@ -51,6 +53,7 @@ const Preferences = Schema.Struct({
   danger: Schema.Number,
   live: Schema.Boolean,
   notify: Schema.Boolean,
+  pin: Schema.Boolean,
 })
 
 type Tone = "warning" | "danger"
@@ -1020,6 +1023,11 @@ function UsagePanel(props: {
         ? "OpenCode Zen"
         : "Usage")
   const subtitle = () => [plan()?.label, updated() ? `updated ${updated()}` : ""].filter(Boolean).join(" · ")
+  const togglePin = () => {
+    const pin = !props.prefs.pin
+    if (!pin) props.ctx.layout.open(`${props.ctx.id}:usage`, props.session, { background: true })
+    props.setPrefs({ pin })
+  }
 
   return (
     <div
@@ -1057,6 +1065,15 @@ function UsagePanel(props: {
           </div>
         </div>
         <div style={{ display: "flex", "align-items": "center", gap: "2px" }}>
+          <ui.Tooltip value={props.prefs.pin ? "Unpin from sidebar" : "Pin to sidebar"}>
+            <ui.IconButton
+              icon={props.prefs.pin ? "sidebar-active" : "sidebar"}
+              label={props.prefs.pin ? "Unpin Usage tab" : "Pin Usage tab"}
+              size="small"
+              pressed={props.prefs.pin}
+              onClick={togglePin}
+            />
+          </ui.Tooltip>
           <ui.Tooltip value="Stats">
             <ui.IconButton
               icon="window-analytics"
@@ -2243,6 +2260,7 @@ function UsageSettings(props: {
   ui: Context["ui"]
   prefs: () => Prefs
   set: (patch: Partial<Prefs>) => void
+  setPin: (value: boolean) => void
 }) {
   const ui = props.ui
   const prefs = props.prefs
@@ -2273,6 +2291,30 @@ function UsageSettings(props: {
         <div style={{ display: "flex", "justify-content": "flex-end", gap: "6px" }}>
           {option("Used", prefs().display === "used", () => set({ display: "used" }))}
           {option("Remaining", prefs().display === "remaining", () => set({ display: "remaining" }))}
+        </div>
+      </SettingsCard>
+
+      <SettingsCard title="Sidebar tab" description="Control whether Usage stays in the session sidebar.">
+        <div
+          style={{
+            display: "grid",
+            "grid-template-columns": "minmax(0, 1fr) auto",
+            "align-items": "center",
+            gap: "12px",
+          }}
+        >
+          <div style={{ display: "grid", gap: "2px" }}>
+            <span style={{ "font-size": "13px" }}>Pin Usage tab</span>
+            <span style={{ "font-size": "11px", opacity: 0.5 }}>
+              Always show the tab. Turn it off to close, drag, or reopen it from the session panel menu.
+            </span>
+          </div>
+          <ui.Switch
+            checked={prefs().pin}
+            onChange={(value) => props.setPin(value)}
+            label="Pin Usage tab"
+            hideLabel
+          />
         </div>
       </SettingsCard>
 
@@ -2361,12 +2403,17 @@ function UsageSettings(props: {
   )
 }
 
-const usageTab: PanelTab = {
+const usageTabPinned: PanelTab = {
   id: "usage",
-  get title() {
-    return "Usage"
-  },
+  title: "Usage",
   pinned: true,
+  fallback: true,
+}
+
+const usageTabFloating: PanelTab = {
+  id: "usage",
+  title: "Usage",
+  closable: "hover",
   fallback: true,
 }
 
@@ -2527,6 +2574,16 @@ export default Plugin.define({
       ctx.layout.open(`${ctx.id}:usage`, session, { background: true })
     }
 
+    const setPin = (pin: boolean) => {
+      if (!pin) {
+        const session = ctx.sessions.current()
+        if (session) openPanel(session)
+      }
+      ctx.stores.prefs.update((draft) => {
+        draft.pin = pin
+      })
+    }
+
     ctx.add(Command, () => ({
       id: "open",
       title: "Usage: open details",
@@ -2601,6 +2658,7 @@ export default Plugin.define({
       icon: "window-analytics",
       entries: [
         { id: "display", title: "Quota display", keywords: "used remaining" },
+        { id: "tab", title: "Sidebar tab", keywords: "pin close drag" },
         { id: "thresholds", title: "Thresholds", keywords: "warning danger" },
         { id: "live", title: "Live TPS", keywords: "sparkline performance" },
       ],
@@ -2613,6 +2671,7 @@ export default Plugin.define({
               Object.assign(draft, patch)
             })
           }}
+          setPin={setPin}
         />
       ),
     })
@@ -2620,7 +2679,12 @@ export default Plugin.define({
     ctx.add(Panel, {
       id: "usage",
       region: "side",
-      list: () => [usageTab],
+      list: ({ open }) =>
+        ctx.stores.prefs.value.pin
+          ? [usageTabPinned]
+          : open.includes("usage")
+            ? [usageTabFloating]
+            : [],
       render: (props) => (
         <UsagePanel
           ctx={ctx}
